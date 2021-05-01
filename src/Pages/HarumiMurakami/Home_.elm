@@ -240,16 +240,13 @@ renderBook index book =
                 (paragraph [] [ text book.title ])
             , el [ height (px 24) ] none
             , row [ spacing 4 ]
-                [ renderFilledStar []
-                , renderStar []
-                , renderStar []
-                , renderStar []
-                , renderStar []
-                ]
+                (List.repeat book.stars (renderFilledStar [])
+                    ++ List.repeat (5 - book.stars) (renderStar [])
+                )
             , el [ height (px 8) ] none
             , paragraph [ Font.size 18 ]
                 [ el [ Font.regular ] (text "See reviews ")
-                , el [ Font.light ] (text ("(" ++ String.fromInt book.reviews ++ ")"))
+                , el [ Font.light ] (text ("(" ++ commaSeparatedInt book.reviews ++ ")"))
                 ]
             ]
         ]
@@ -284,3 +281,23 @@ renderStar attr =
         ]
         |> Element.html
         |> el (Font.color UI.black :: attr)
+
+
+commaSeparatedInt int =
+    int
+        |> String.fromInt
+        |> String.foldr
+            (\x acc ->
+                case acc of
+                    [ a, b, c ] :: tail ->
+                        [ [ x ], [ a, b, c ] ] ++ tail
+
+                    head :: tail ->
+                        (x :: head) :: tail
+
+                    a ->
+                        [ x ] :: a
+            )
+            []
+        |> List.map String.fromList
+        |> String.join ","

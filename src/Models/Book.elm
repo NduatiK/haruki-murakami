@@ -19,7 +19,7 @@ allBooks =
     , { imageUrl = "book2-large.png"
       , title = "1Q84 - Book 1,2,3"
       , stars = 4
-      , reviews = 5718
+      , reviews = 1718
       }
     , { imageUrl = "book3-large.png"
       , title = "Kafka on the Shore"
