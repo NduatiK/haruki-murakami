@@ -44,7 +44,15 @@ toBrowserDocument : View msg -> Browser.Document msg
 toBrowserDocument view =
     { title = view.title
     , body =
-        [ Element.layout
+        [ Element.layoutWith
+            { options =
+                [ focusStyle
+                    { borderColor = Nothing
+                    , backgroundColor = Nothing
+                    , shadow = Nothing
+                    }
+                ]
+            }
             [ UI.robotoSlab
             , Font.light
             , height fill

@@ -2,11 +2,14 @@ module UI exposing
     ( black
     , cream
     , layout
+    , lightBlue
+    , raleway
     , red
     , robotoSlab
     , rubik
     , sidebarHeight
     , white
+    , withAlpha, lessLightBlue
     )
 
 import Element exposing (..)
@@ -22,8 +25,11 @@ sidebarHeight =
     120
 
 
-layout : Route -> Element msg -> Element msg
-layout currentRoute child =
+
+-- layout : Route -> Element msg -> Element msg
+
+
+layout currentRoute child onRoutePageAnimator =
     column
         [ htmlAttribute (Html.Attributes.style "transition" "color 200ms, background-color 200ms")
         , height fill
@@ -35,7 +41,7 @@ layout currentRoute child =
             white
         ]
         [ el
-            [ inFront (navbar currentRoute)
+            [ inFront (navbar currentRoute onRoutePageAnimator)
             , width fill
             , height fill
             ]
@@ -43,7 +49,7 @@ layout currentRoute child =
         ]
 
 
-navbar currentRoute =
+navbar currentRoute onRoutePageAnimator =
     let
         icon =
             if currentRoute == HarumiMurakami__Home_ then
@@ -145,6 +151,13 @@ rubik =
         ]
 
 
+raleway =
+    Font.family
+        [ Font.typeface "Raleway"
+        , Font.sansSerif
+        ]
+
+
 
 -- COLORS
 
@@ -159,6 +172,14 @@ black =
 
 white =
     rgb255 249 249 251
+
+
+lightBlue =
+    rgb255 232 244 250
+
+
+lessLightBlue =
+    rgb255 146 208 216
 
 
 cream =

@@ -1,17 +1,18 @@
 module Pages.HarumiMurakami.Home_ exposing (Model, Msg, page)
 
+import Animator
+import Animator.Inline
 import Browser.Dom
 import Element exposing (..)
 import Element.Background as Background
-import Element.Border
+import Element.Border as Border
 import Element.Events
 import Element.Font as Font
 import Element.Input as Input
 import FeatherIcons
 import Gen.Params.Example exposing (Params)
-import Gen.Route exposing (Route)
+import Gen.Route exposing (Route(..))
 import Html.Attributes
-import Html.Events
 import Models.Book exposing (Book)
 import Page
 import Request
@@ -19,6 +20,7 @@ import Shared
 import Svg exposing (Svg, svg)
 import Svg.Attributes
 import Task
+import Time
 import UI
 import View exposing (View)
 
@@ -29,7 +31,10 @@ page shared req =
         { init = init req shared.pageOptions
         , update = update
         , view = view
-        , subscriptions = subscriptions
+        , subscriptions =
+            \model ->
+                animator
+                    |> Animator.toSubscription Tick model
         }
 
 
@@ -39,14 +44,57 @@ page shared req =
 
 type alias Model =
     { req : Request.With Params
-    , isDark : Bool
-    , text : String
+    , books : List Book
+    , state : Animator.Timeline State
+    , lastBook : Maybe Book
     }
+
+
+type State
+    = Default
+    | BookOpen Int Book
+
+
+animator : Animator.Animator Model
+animator =
+    Animator.animator
+        |> Animator.watching
+            .state
+            (\newState model ->
+                { model | state = newState }
+            )
 
 
 init : Request.With Params -> Shared.PageOptions -> ( Model, Cmd Msg )
 init req sharedOptions =
-    ( Model req sharedOptions.isDark "", Cmd.none )
+    -- ( { req = req
+    --   , books = Models.Book.allBooks
+    --   , state =
+    --         Animator.init
+    --             (BookOpen 0
+    --                 { imageUrl = "book1-large.png"
+    --                 , title = "The Wind-Up Bird Chronicle"
+    --                 , stars = 4
+    --                 , reviews = 1604
+    --                 }
+    --             )
+    --   , lastBook =
+    --         Just
+    --             { imageUrl = "book1-large.png"
+    --             , title = "The Wind-Up Bird Chronicle"
+    --             , stars = 4
+    --             , reviews = 1604
+    --             }
+    --   }
+    -- , Cmd.none
+    -- )
+    ( { req = req
+      , books = Models.Book.allBooks
+      , state = Animator.init Default
+      , lastBook = Nothing
+      }
+    , Cmd.none
+    )
 
 
 
@@ -55,8 +103,9 @@ init req sharedOptions =
 
 type Msg
     = NoOp
-    | UpdateText String
-    | ScrollToBook Int
+    | Tick Time.Posix
+    | SelectBook Int Book
+    | CloseBook
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -65,25 +114,29 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        UpdateText string ->
-            ( { model | text = string }, Cmd.none )
-
-        ScrollToBook index ->
-            let
-                bookIndex =
-                    "book-" ++ String.fromInt index
-            in
+        Tick newTime ->
             ( model
-            , Browser.Dom.getElement bookIndex
-                |> Task.andThen
-                    (\info ->
-                        Browser.Dom.getViewportOf "book-container"
-                            |> Task.andThen
-                                (\info2 ->
-                                    Browser.Dom.setViewportOf "book-container" (info.element.x - 148 + info2.viewport.x) 0
-                                )
-                    )
-                |> Task.attempt (\_ -> NoOp)
+                |> Animator.update newTime animator
+            , Cmd.none
+            )
+
+        SelectBook index book ->
+            ( { model
+                | state =
+                    model.state
+                        |> Animator.go Animator.verySlowly (BookOpen index book)
+                , lastBook = Just book
+              }
+            , Cmd.none
+            )
+
+        CloseBook ->
+            ( { model
+                | state =
+                    model.state
+                        |> Animator.go Animator.verySlowly Default
+              }
+            , Cmd.none
             )
 
 
@@ -104,58 +157,280 @@ view : Model -> View Msg
 view model =
     { title = "Home"
     , element =
-        UI.layout model.req.route
-            (row
-                [ height fill
-                , width fill
-                ]
-                [ --- Width is 148
-                  sidebar
-                , column
-                    [ alignTop
-                    , moveDown UI.sidebarHeight
-                    , htmlAttribute (Html.Attributes.style "width" "calc(100vw - 148px)")
-                    ]
-                    [ el [ height (px 60) ] none
-                    , renderHeader
-                    , el [ height (px 60) ] none
-                    , renderBookList Models.Book.allBooks
-                    , el [ height (px 160) ] none
-                    , row []
-                        [ el [ width (px 65) ] none
-                        , el [ height (px 80), width (px 80), Background.color UI.cream ] none
-                        , el [ width (px 20) ] none
-                        , FeatherIcons.playCircle
-                            |> FeatherIcons.withSize 36
-                            |> FeatherIcons.withStrokeWidth 1
-                            |> FeatherIcons.toHtml []
-                            |> Element.html
-                            |> el [ Font.color UI.black, centerX, centerY, moveUp 20 ]
-                        , el [ width (px 20) ] none
-                        , column [ width (px 944), height fill ]
-                            [ el [ Font.medium, UI.rubik, alignTop ] (text "What I Talk About When I Talk About Running")
-                            , el [ height (px 4) ] none
-                            , row [ width fill ]
-                                [ el [ UI.rubik, alignTop, Font.size 16 ] (text "Chapter 1")
-                                , el [ UI.rubik, alignTop, alignRight, Font.size 16 ] (text "7:01 / 18:54")
-                                ]
-                            , row [ width fill, alignBottom ]
-                                [ el [ alpha 0.4, Background.color UI.black, width (px 2), height (px 16) ] none
-                                , el [ alpha 0.4, Background.color UI.black, width fill, height (px 2) ] none
-                                , el [ alpha 0.4, Background.color UI.black, width (px 2), height (px 16) ] none
-                                ]
-                            ]
-
-                        -- ,
-                        ]
-                    ]
-                ]
-            )
+        column
+            [ htmlAttribute (Html.Attributes.style "transition" "color 200ms, background-color 200ms")
+            , htmlAttribute (Html.Attributes.style "overflow-x" "hidden")
+            , height fill
+            , scrollbarY
+            , width fill
+            , Font.color (UI.withAlpha 0.8 UI.black)
+            , Background.color UI.white
+            , inFront (bookDetailPage model)
+            ]
+            [ homePage model
+            ]
     }
 
 
+homePage model =
+    row
+        [ height fill
+        , htmlAttribute (Html.Attributes.style "width" "100vw")
+        ]
+        [ sidebar
+        , el
+            [ inFront (navbar True model)
+            , width fill
+            , height fill
+            ]
+          <|
+            column
+                [ alignTop
+                , moveDown UI.sidebarHeight
+                , htmlAttribute (Html.Attributes.style "width" ([ "calc(100vw - ", String.fromInt sidebarWidth, "px)" ] |> String.join ""))
+                ]
+                [ el [ height (px 60) ] none
+                , renderHeader model.state
+                , el [ height (px 60) ] none
+                , renderBookList model.state model.books
+                , el [ height (px 160) ] none
+                , row
+                    [ onOpenAnimateX model.state (always -800)
+                    ]
+                    [ el [ width (px 65) ] none
+                    , el [ height (px 80), width (px 80), Background.color UI.cream ] none
+                    , el [ width (px 20) ] none
+                    , FeatherIcons.playCircle
+                        |> FeatherIcons.withSize 36
+                        |> FeatherIcons.withStrokeWidth 1
+                        |> FeatherIcons.toHtml []
+                        |> Element.html
+                        |> el [ Font.color UI.black, centerX, centerY, moveUp 20 ]
+                    , el [ width (px 20) ] none
+                    , column
+                        [ width (px 944)
+                        , height fill
+                        ]
+                        [ el [ Font.medium, UI.rubik, alignTop ] (text "What I Talk About When I Talk About Running")
+                        , el [ height (px 4) ] none
+                        , row [ width fill ]
+                            [ el [ UI.rubik, alignTop, Font.size 16 ] (text "Chapter 1")
+                            , el [ UI.rubik, alignTop, alignRight, Font.size 16 ] (text "14:01 / 18:54")
+                            ]
+                        , row
+                            [ width fill
+                            , alignBottom
+                            , inFront
+                                (row [ width fill, centerY ]
+                                    [ el [ width (fillPortion 13) ] none
+                                    , el
+                                        [ Background.color (rgb255 127 194 205)
+                                        , width (px 12)
+                                        , height (px 12)
+                                        , Border.rounded 8
+                                        ]
+                                        none
+                                    , el [ width (fillPortion 5) ] none
+                                    ]
+                                )
+                            ]
+                            [ el [ alpha 0.4, Background.color UI.black, width (px 2), height (px 16) ] none
+                            , el [ alpha 0.4, Background.color UI.black, width fill, height (px 2) ] none
+                            , el [ alpha 0.4, Background.color UI.black, width (px 2), height (px 16) ] none
+                            ]
+                        ]
+
+                    -- ,
+                    ]
+                ]
+        ]
+
+
+bookDetailPage model =
+    let
+        scale =
+            Animator.linear model.state <|
+                \state ->
+                    case state of
+                        Default ->
+                            Animator.at 1
+
+                        BookOpen bookIndex _ ->
+                            Animator.at (220 / 180)
+    in
+    el
+        [ clipX
+
+        -- , htmlAttribute (Html.Attributes.style "transition" "width 40ms linear")
+        -- , htmlAttribute (Html.Attributes.style "z-index" "100")
+        -- , htmlAttribute
+        --     (Html.Attributes.style "width"
+        --         ((if Animator.current model.state == Default then
+        --             "0"
+        --           else
+        --             "100"
+        --          )
+        --             ++ "vw"
+        --         )
+        --     )
+        , htmlAttribute
+            (Html.Attributes.style "width"
+                ((String.fromFloat <|
+                    Animator.linear model.state <|
+                        \state ->
+                            if state == Default then
+                                Animator.at 0
+
+                            else
+                                Animator.at 100
+                 )
+                    ++ "vw"
+                )
+            )
+        , height fill
+        ]
+    <|
+        case model.lastBook of
+            Nothing ->
+                none
+
+            Just book ->
+                row
+                    [ inFront (navbar False model)
+                    , height fill
+                    , width fill
+                    , Background.color (rgb255 218 210 202)
+                    , htmlAttribute
+                        (Html.Attributes.style "width" "100vw")
+                    ]
+                    [ column [ UI.raleway, Font.color UI.white, paddingXY 60 0 ]
+                        [ el [ Font.size 100 ] (text "❝")
+                        , paragraph [ UI.robotoSlab, Font.size 40 ]
+                            [ text """
+                            Dreamlike and
+                            compelling...
+                            Murakami is a
+                            genius
+                            """
+                            ]
+                        , el [ height (px 40) ] none
+                        , el
+                            [ width (px 30)
+                            , height (px 2)
+                            , Background.color UI.white
+                            ]
+                            none
+                        , el [ height (px 40) ] none
+                        , el [ Font.size 24, Font.extraBold, Font.italic, Font.letterSpacing 0.1 ] (text "Chicago Tribune")
+                        ]
+                    , el
+                        [ height (px 600)
+                        , width (px 840)
+                        , alignRight
+                        , alignTop
+                        , moveDown UI.sidebarHeight
+                        , Background.color UI.white
+                        , inFront
+                            (image
+                                [ width (px (round (180 * scale)))
+                                , height (px (round (270 * scale)))
+
+                                -- , onOpenAnimateX bookState (always 200)
+                                , centerY
+                                , moveLeft 110
+                                , Border.shadow
+                                    { blur = 15
+                                    , color = UI.withAlpha 0.2 UI.black
+                                    , offset = ( 0, 10 )
+                                    , size = 0
+                                    }
+                                ]
+                                { description = "Cover for " ++ book.title
+                                , src = book.imageUrl
+                                }
+                            )
+
+                        -- , onOpenAnimateX bookState (always -800)
+                        ]
+                        (row [ width fill, height fill ]
+                            [ el [ width (px 190) ] none
+                            , column
+                                [ UI.raleway, Font.color UI.black, width fill ]
+                                [ paragraph [ UI.robotoSlab, Font.size 40, width fill ]
+                                    [ text book.title ]
+                                , el [ height (px 40) ] none
+                                , el [ Font.medium ] (text "Haruki Murakami")
+                                , el [ height (px 40) ] none
+                                , row [ width fill ]
+                                    [ renderMetadata "Originally Published" "July 1, 1960"
+                                    , renderMetadata "Publisher" "Shin Publishing"
+                                    ]
+                                , el [ height (px 40) ] none
+                                , renderMetadata "Categories" "Fictional, Magical Realism, Asian Literature, Domestic Fiction"
+                                ]
+                            , el [ width (px 40), alignRight ] none
+                            , el
+                                [ height fill
+                                , width (px sidebarWidth)
+                                , Border.widthEach
+                                    { bottom = 0
+                                    , left = 1
+                                    , right = 0
+                                    , top = 0
+                                    }
+                                , Border.color (UI.withAlpha 0.2 UI.black)
+                                , alignRight
+                                ]
+                              <|
+                                column [ centerY, centerX, spacing 80 ]
+                                    [ renderBookAction "Save" FeatherIcons.bookmark
+                                    , renderBookAction "Preview" FeatherIcons.playCircle
+                                    , renderBookAction "Get Book" FeatherIcons.shoppingBag
+                                    ]
+                            ]
+                        )
+                    , el
+                        [ height (px 540)
+                        , width (px 80)
+                        , alignRight
+                        ]
+                        none
+                    ]
+
+
+renderMetadata title subtitle =
+    column [ spacing 8, width fill, Font.regular ]
+        [ el [ Font.color UI.lessLightBlue, width fill ] (text title)
+        , paragraph [ Font.color (UI.withAlpha 0.8 UI.black), width fill, Font.size 18 ] [ text subtitle ]
+        ]
+
+
+renderBookAction action icon =
+    column [ spacing 8, centerX, Font.center, Font.regular, UI.rubik ]
+        [ icon
+            |> FeatherIcons.withSize 36
+            |> FeatherIcons.withStrokeWidth 1
+            |> FeatherIcons.toHtml []
+            |> Element.html
+            |> el [ Font.color UI.black, centerX ]
+        , text action
+        ]
+
+
+sidebarWidth =
+    148
+
+
 sidebar =
-    column [ paddingXY 60 50, spacing 40, height fill ]
+    column
+        [ paddingXY 60 50
+        , spacing 40
+        , height fill
+        , Background.color UI.white
+        , width (px sidebarWidth)
+
+        -- , htmlAttribute (Html.Attributes.style "z-index" "100")
+        ]
         [ renderIcon [ centerY ] FeatherIcons.music
         , renderIcon [ centerY ] FeatherIcons.book
         , renderIcon [ centerY ] FeatherIcons.bookmark
@@ -172,60 +447,132 @@ renderIcon attr icon =
         |> el (Font.color UI.black :: attr)
 
 
-renderHeader =
+renderHeader bookState =
     row
-        [ width (fill |> maximum 1165)
+        [ width fill
         , behindContent
             (el
-                [ height (px 540)
-                , width (px 1100)
-                , moveRight 65
+                [ moveRight 65
                 , moveUp 60
-                , Background.color UI.cream
                 ]
-                none
+             <|
+                el
+                    [ height (px 540)
+                    , width (px 1100)
+                    , Background.color UI.cream
+                    , onOpenAnimateX bookState (always -800)
+                    ]
+                    none
             )
+        , behindContent
+            (el
+                [ moveRight 1165
+                , moveUp 60
+                , alignRight
+                ]
+             <|
+                el
+                    [ height (px 540)
+                    , width (px 1100)
+                    , Background.color UI.lightBlue
+                    , onOpenAnimateX bookState (always -1400)
+                    ]
+                    none
+            )
+        , height (px 40)
         ]
         [ el
             [ Font.light
             , Font.size 56
-            , width fill
+            , width (fill |> maximum (1000 + 25))
+            , onOpenAnimateX bookState (always 400)
             ]
             (text "Most Popular Picks")
         , el [ width (px 40) ] none
-        , renderIcon [ centerY, alignRight ] FeatherIcons.menu
+        , renderIcon [ alignLeft, centerY, onOpenAnimateX bookState (always -800) ] FeatherIcons.menu
         , el [ width (px 65) ] none
         ]
 
 
-renderBookList books =
+renderBookList state books =
     el
         [ height (px 270)
         , htmlAttribute (Html.Attributes.class "keep-scrolling")
         , width fill
         , htmlAttribute (Html.Attributes.id "book-container")
-        , scrollbarX
         , htmlAttribute (Html.Attributes.style "scroll-behavior" " smooth")
+        , htmlAttribute (Html.Attributes.style "overflow-y" "visible")
         ]
     <|
         row
             [ spacing 70
             ]
-            (List.indexedMap renderBook books
-                ++ [ el [ htmlAttribute (Html.Attributes.style "width" "calc(100vw - 148px - 65px - 65px - 6px - 440px)") ] none ]
+            (List.indexedMap (renderBook state) books
+                ++ [ el
+                        [ htmlAttribute
+                            (Html.Attributes.style "width"
+                                ([ "calc(100vw - ", String.fromInt sidebarWidth, "px - 65px - 65px - 6px - 440px)" ]
+                                    |> String.join ""
+                                )
+                            )
+                        ]
+                        none
+                   ]
             )
 
 
-renderBook : Int -> Book -> Element Msg
-renderBook index book =
+
+-- renderBook : Int -> Book -> Element Msg
+
+
+renderBook bookState index book =
+    let
+        scale =
+            Animator.linear bookState <|
+                \state ->
+                    case state of
+                        Default ->
+                            Animator.at 1
+
+                        BookOpen bookIndex _ ->
+                            if index == bookIndex then
+                                Animator.at (220 / 180)
+
+                            else
+                                Animator.at 1
+    in
     row
         [ UI.rubik
         , htmlAttribute (Html.Attributes.id ("book-" ++ String.fromInt index))
-        , Element.Events.onClick (ScrollToBook index)
+        , Element.Events.onClick
+            (if Animator.current bookState == Default then
+                SelectBook index book
+
+             else
+                CloseBook
+            )
+        , onOpenAnimateX bookState <|
+            \bookIndex ->
+                if index > bookIndex then
+                    1000
+
+                else if index == bookIndex then
+                    0
+
+                else
+                    -1000
+        , height (px 270)
         ]
         [ image
-            [ width (px 180)
-            , height (px 270)
+            [ width (px (round (180 * scale)))
+            , height (px (round (270 * scale)))
+            , onOpenAnimateX bookState (always 200)
+            , alignTop
+            , if Animator.current bookState /= Default then
+                htmlAttribute (Html.Attributes.style "z-index" "100")
+
+              else
+                moveUp 0
             ]
             { description = "Cover for " ++ book.title
             , src = book.imageUrl
@@ -249,6 +596,98 @@ renderBook index book =
                 , el [ Font.light ] (text ("(" ++ commaSeparatedInt book.reviews ++ ")"))
                 ]
             ]
+        ]
+
+
+navbar forHome model =
+    let
+        icon =
+            if forHome then
+                FeatherIcons.menu
+
+            else
+                FeatherIcons.arrowLeft
+
+        navigationTitle =
+            if forHome then
+                "Harumi Murakami"
+
+            else
+                "Back"
+    in
+    el
+        [ width fill
+        , height (px UI.sidebarHeight)
+        ]
+    <|
+        row
+            [ paddingEach
+                { bottom = 20
+                , left =
+                    if forHome then
+                        60
+
+                    else
+                        60 + sidebarWidth
+                , right = 60
+                , top = 20
+                }
+            , spacing 25
+            , width fill
+            , centerY
+            ]
+            [ Input.button []
+                { onPress = Just CloseBook
+                , label =
+                    icon
+                        |> FeatherIcons.withSize 28
+                        |> FeatherIcons.withStrokeWidth 2.4
+                        |> FeatherIcons.toHtml []
+                        |> Element.html
+                        |> el [ Font.color UI.black, alpha 0.8 ]
+                }
+            , el [ Font.size 28, Font.regular ] (text navigationTitle)
+            , el [ alignRight ] (renderSearchBar model)
+            ]
+
+
+renderSearchBar model =
+    let
+        searchIcon =
+            FeatherIcons.search
+                |> FeatherIcons.withSize 28
+                |> FeatherIcons.withStrokeWidth 2.4
+                |> FeatherIcons.toHtml []
+                |> Element.html
+                |> el [ Font.color UI.black, alpha 0.8 ]
+    in
+    row
+        [ spacing 8
+        , paddingXY 0 8
+        , Border.color (UI.withAlpha 0.2 UI.black)
+        , Border.widthEach
+            { bottom = 2
+            , left = 0
+            , right = 0
+            , top = 0
+            }
+        ]
+        [ el [] searchIcon
+        , el
+            [ height fill
+            , width
+                (px <|
+                    round <|
+                        Animator.linear model.state <|
+                            \state ->
+                                if state == Default then
+                                    Animator.at 140
+
+                                else
+                                    Animator.at 1
+                )
+            ]
+            none
         ]
 
 
@@ -301,3 +740,27 @@ commaSeparatedInt int =
             []
         |> List.map String.fromList
         |> String.join ","
+
+
+onOpenAnimateX bookState fn =
+    htmlAttribute <|
+        Animator.Inline.xy bookState <|
+            \state ->
+                case state of
+                    Default ->
+                        { x = Animator.at 0, y = Animator.at 0 }
+
+                    BookOpen bookIndex _ ->
+                        { x = Animator.at (fn bookIndex), y = Animator.at 0 }
+
+
+onOpenScale bookState fn =
+    htmlAttribute <|
+        Animator.Inline.scale bookState <|
+            \state ->
+                case state of
+                    Default ->
+                        Animator.at 1
+
+                    BookOpen bookIndex _ ->
+                        Animator.at (fn bookIndex)
