@@ -496,7 +496,7 @@ renderHeader bookState =
 
 renderBookList state books =
     el
-        [ height (px 270)
+        [ height (px 330)
         , htmlAttribute (Html.Attributes.class "keep-scrolling")
         , width fill
         , htmlAttribute (Html.Attributes.id "book-container")
