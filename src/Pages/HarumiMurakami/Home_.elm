@@ -502,6 +502,7 @@ renderBookList state books =
         , htmlAttribute (Html.Attributes.id "book-container")
         , htmlAttribute (Html.Attributes.style "scroll-behavior" " smooth")
         , htmlAttribute (Html.Attributes.style "overflow-y" "visible")
+        , scrollbarX
         ]
     <|
         row

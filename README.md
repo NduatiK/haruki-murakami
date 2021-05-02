@@ -11,3 +11,4 @@ Todo
 - [x] Add detail page
 - [x] Add animations in home and detail page
 - [ ] Make hero animation precise
+- [ ] Add animating background to detail page
