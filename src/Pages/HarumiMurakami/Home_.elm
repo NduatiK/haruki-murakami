@@ -48,6 +48,7 @@ type alias Model =
     , state : Animator.Timeline State
     , lastBook : Maybe Book
     , animationData : Maybe { pageWidth : Float, bookOffset : Float }
+    , fast : Bool
     }
 
 
@@ -94,6 +95,7 @@ init req sharedOptions =
       , state = Animator.init Default
       , lastBook = Nothing
       , animationData = Nothing
+      , fast = True
       }
     , Cmd.none
     )
@@ -109,6 +111,7 @@ type Msg
     | SelectBook Int Book
     | UpdateSelectBookLocations ( Float, Float )
     | CloseBook
+    | ToggleSpeed
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -116,6 +119,11 @@ update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
+
+        ToggleSpeed ->
+            ( { model | fast = not model.fast }
+            , Cmd.none
+            )
 
         Tick newTime ->
             ( model
@@ -133,8 +141,13 @@ update msg model =
             in
             ( { model
                 | state =
-                    model.state
-                        |> Animator.go Animator.verySlowly (BookOpen index book)
+                    if model.fast then
+                        model.state
+                            |> Animator.go Animator.verySlowly (BookOpen index book)
+
+                    else
+                        model.state
+                            |> Animator.go (Animator.millis 4000) (BookOpen index book)
                 , lastBook = Just book
               }
             , Browser.Dom.getElement pageId
@@ -171,8 +184,13 @@ update msg model =
         CloseBook ->
             ( { model
                 | state =
-                    model.state
-                        |> Animator.go Animator.verySlowly Default
+                    if model.fast then
+                        model.state
+                            |> Animator.go Animator.verySlowly Default
+
+                    else
+                        model.state
+                            |> Animator.go (Animator.millis 4000) Default
               }
             , Cmd.none
             )
@@ -216,7 +234,7 @@ homePage model =
         , htmlAttribute (Html.Attributes.style "width" "100vw")
         , htmlAttribute (Html.Attributes.id "page")
         ]
-        [ sidebar
+        [ sidebar model
         , el
             [ inFront (navbar True model)
             , width fill
@@ -508,7 +526,7 @@ sidebarWidth =
     148
 
 
-sidebar =
+sidebar model =
     column
         [ paddingXY 60 50
         , spacing 40
@@ -521,6 +539,13 @@ sidebar =
         [ renderIcon [ centerY ] FeatherIcons.music
         , renderIcon [ centerY ] FeatherIcons.book
         , renderIcon [ centerY ] FeatherIcons.bookmark
+        , renderIcon [ alignBottom, Element.Events.onClick ToggleSpeed ]
+            (if model.fast then
+                FeatherIcons.zap
+
+             else
+                FeatherIcons.zapOff
+            )
         , renderIcon [ alignBottom ] FeatherIcons.home
         ]
 
