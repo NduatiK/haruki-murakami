@@ -47,8 +47,14 @@ type alias Model =
     , books : List Book
     , state : Animator.Timeline State
     , lastBook : Maybe Book
-    , animationData : Maybe { pageWidth : Float, bookOffset : Float }
+    , animationData : Maybe AnimationData
     , fast : Bool
+    }
+
+
+type alias AnimationData =
+    { pageWidth : Float
+    , bookOffset : Float
     }
 
 
@@ -173,15 +179,6 @@ update msg model =
 
 
 
--- SUBSCRIPTIONS
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.none
-
-
-
 -- VIEW
 
 
@@ -204,6 +201,7 @@ view model =
     }
 
 
+homePage : Model -> Element Msg
 homePage model =
     row
         [ height fill
@@ -277,14 +275,17 @@ homePage model =
         ]
 
 
+bookDetailCardWidth : number
 bookDetailCardWidth =
     840
 
 
+bookDetailRightPadding : number
 bookDetailRightPadding =
     80
 
 
+bookDetailPage : Model -> Element msg
 bookDetailPage model =
     let
         animateOffset =
@@ -311,13 +312,12 @@ bookDetailPage model =
                         Default ->
                             Animator.at 1
 
-                        BookOpen bookIndex _ ->
+                        BookOpen _ _ ->
                             Animator.at (220 / 180)
     in
     el
         [ clipX
         , Background.color (rgb255 225 214 205)
-
         , htmlAttribute
             (Html.Attributes.style "width"
                 ((String.fromFloat <|
@@ -413,7 +413,6 @@ bookDetailPage model =
                                 , src = book.imageUrl
                                 }
                             )
-
                         ]
                         (row [ width fill, height fill ]
                             [ el [ width (px 190) ] none
@@ -461,6 +460,7 @@ bookDetailPage model =
                     ]
 
 
+renderMetadata : String -> String -> Element msg
 renderMetadata title subtitle =
     column [ spacing 8, width fill, Font.regular ]
         [ el [ Font.color UI.lessLightBlue, width fill ] (text title)
@@ -468,6 +468,7 @@ renderMetadata title subtitle =
         ]
 
 
+renderBookAction : String -> FeatherIcons.Icon -> Element msg
 renderBookAction action icon =
     column [ spacing 8, centerX, Font.center, Font.regular, UI.rubik ]
         [ icon
@@ -480,10 +481,12 @@ renderBookAction action icon =
         ]
 
 
+sidebarWidth : number
 sidebarWidth =
     148
 
 
+sidebar : Model -> Element Msg
 sidebar model =
     column
         [ paddingXY 60 50
@@ -491,7 +494,6 @@ sidebar model =
         , height fill
         , Background.color UI.white
         , width (px sidebarWidth)
-
         ]
         [ renderIcon [ centerY ] FeatherIcons.music
         , renderIcon [ centerY ] FeatherIcons.book
@@ -507,6 +509,7 @@ sidebar model =
         ]
 
 
+renderIcon : List (Attr () msg) -> FeatherIcons.Icon -> Element msg
 renderIcon attr icon =
     icon
         |> FeatherIcons.withSize 28
@@ -516,6 +519,7 @@ renderIcon attr icon =
         |> el (Font.color UI.black :: attr)
 
 
+renderHeader : Animator.Timeline State -> Element msg
 renderHeader bookState =
     row
         [ width fill
@@ -569,6 +573,7 @@ renderHeader bookState =
         ]
 
 
+renderBookList : Animator.Timeline State -> Maybe AnimationData -> List Book -> Element Msg
 renderBookList state animationData books =
     el
         [ height (px 330)
@@ -597,10 +602,7 @@ renderBookList state animationData books =
             )
 
 
-
--- renderBook : Int -> Book -> Element Msg
-
-
+renderBook : Animator.Timeline State -> Maybe AnimationData -> Int -> Book -> Element Msg
 renderBook bookState animationData index book =
     let
         noMovement =
@@ -651,8 +653,7 @@ renderBook bookState animationData index book =
              else
                 CloseBook
             )
-
-         , onOpenAnimateX bookState <|
+        , onOpenAnimateX bookState <|
             \bookIndex ->
                 if index > bookIndex then
                     1000
@@ -668,7 +669,6 @@ renderBook bookState animationData index book =
             [ width (px (round (180 * scale)))
             , height (px (round (270 * scale)))
             , animateOffset
-
             , alignTop
             , if Animator.current bookState /= Default then
                 htmlAttribute (Html.Attributes.style "z-index" "100")
@@ -709,6 +709,7 @@ renderBook bookState animationData index book =
         ]
 
 
+navbar : Bool -> Model -> Element Msg
 navbar forHome model =
     let
         icon =
@@ -761,6 +762,7 @@ navbar forHome model =
             ]
 
 
+renderSearchBar : Model -> Element msg
 renderSearchBar model =
     let
         searchIcon =
@@ -801,10 +803,10 @@ renderSearchBar model =
         ]
 
 
-svgFeatherIcon className fillColor =
+svgFeatherIcon : String -> List (Svg msg) -> Element msg
+svgFeatherIcon fillColor svgData =
     svg
-        [ Svg.Attributes.class <| "feather feather-" ++ className
-        , Svg.Attributes.fill fillColor
+        [ Svg.Attributes.fill fillColor
         , Svg.Attributes.height "16"
         , Svg.Attributes.strokeLinecap "round"
         , Svg.Attributes.strokeLinejoin "round"
@@ -812,26 +814,29 @@ svgFeatherIcon className fillColor =
         , Svg.Attributes.viewBox "0 0 24 24"
         , Svg.Attributes.width "16"
         ]
+        svgData
+        |> Element.html
 
 
+renderFilledStar : List (Attr () msg) -> Element msg
 renderFilledStar attr =
-    svgFeatherIcon "star"
-        "#f9af1e"
-        [ Svg.polygon [ Svg.Attributes.points "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" ] []
-        ]
-        |> Element.html
+    svgFeatherIcon "#f9af1e" starData
         |> el (Font.color UI.black :: attr)
 
 
+renderStar : List (Attr () msg) -> Element msg
 renderStar attr =
-    svgFeatherIcon "star"
-        "#00000033"
-        [ Svg.polygon [ Svg.Attributes.points "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" ] []
-        ]
-        |> Element.html
+    svgFeatherIcon "#00000033" starData
         |> el (Font.color UI.black :: attr)
 
 
+starData : List (Svg msg)
+starData =
+    [ Svg.polygon [ Svg.Attributes.points "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" ] []
+    ]
+
+
+commaSeparatedInt : Int -> String
 commaSeparatedInt int =
     int
         |> String.fromInt
@@ -852,6 +857,7 @@ commaSeparatedInt int =
         |> String.join ","
 
 
+onOpenAnimateX : Animator.Timeline State -> (Int -> Float) -> Attribute msg
 onOpenAnimateX bookState fn =
     htmlAttribute <|
         Animator.Inline.xy bookState <|
@@ -862,15 +868,3 @@ onOpenAnimateX bookState fn =
 
                     BookOpen bookIndex _ ->
                         { x = Animator.at (fn bookIndex), y = Animator.at 0 }
-
-
-onOpenScale bookState fn =
-    htmlAttribute <|
-        Animator.Inline.scale bookState <|
-            \state ->
-                case state of
-                    Default ->
-                        Animator.at 1
-
-                    BookOpen bookIndex _ ->
-                        Animator.at (fn bookIndex)
