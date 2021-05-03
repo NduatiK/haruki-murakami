@@ -304,12 +304,12 @@ bookDetailPage model =
                                 { x =
                                     Animator.at
                                         -(pageWidth - bookDetailCardWidth - bookDetailRightPadding - 148 - bookOffset + 110 + 40 + 8)
-                                , y = Animator.at 0
+                                , y = Animator.at 160
                                 }
 
                             _ ->
                                 { x = Animator.at -110
-                                , y = Animator.at 12
+                                , y = Animator.at 160
                                 }
 
         scale =
@@ -324,7 +324,9 @@ bookDetailPage model =
     in
     el
         [ clipX
+        , Background.color (rgb255 225 214 205)
 
+        -- , Background.color (rgb255 218 210 202)
         -- , htmlAttribute (Html.Attributes.style "transition" "width 40ms linear")
         -- , htmlAttribute (Html.Attributes.style "z-index" "100")
         -- , htmlAttribute
@@ -363,11 +365,30 @@ bookDetailPage model =
                     [ inFront (navbar False model)
                     , height fill
                     , width fill
-                    , Background.color (rgb255 218 210 202)
+                    , behindContent
+                        (el
+                            [ Background.tiled "light-noise.svg"
+                            , alpha 0.1
+                            , height fill
+                            , width fill
+                            , moveUp 20
+                            , moveLeft 20
+                            ]
+                            none
+                        )
+                    , behindContent
+                        (el
+                            [ Background.tiled "dark-noise.svg"
+                            , alpha 0.05
+                            , height fill
+                            , width fill
+                            ]
+                            none
+                        )
                     , htmlAttribute
                         (Html.Attributes.style "width" "100vw")
                     ]
-                    [ column [ UI.raleway, Font.color UI.white, paddingXY 60 0 ]
+                    [ column [ UI.raleway, Font.color (rgb 1 1 1), paddingXY 60 0 ]
                         [ el [ Font.size 100 ] (text "❝")
                         , paragraph [ UI.robotoSlab, Font.size 40 ]
                             [ text """
@@ -388,7 +409,7 @@ bookDetailPage model =
                         , el [ Font.size 24, Font.extraBold, Font.italic, Font.letterSpacing 0.1 ] (text "Chicago Tribune")
                         ]
                     , el
-                        [ height (px 600)
+                        [ height (px 610)
                         , width (px bookDetailCardWidth)
                         , alignRight
                         , alignTop
@@ -400,7 +421,8 @@ bookDetailPage model =
                                 , height (px (round (270 * scale)))
 
                                 -- , onOpenAnimateX bookState (always 200)
-                                , centerY
+                                , alignTop
+                                , moveDown 140
                                 , htmlAttribute (Html.Attributes.style "z-index" "200")
                                 , animateOffset
                                 , Border.shadow
@@ -515,6 +537,7 @@ renderIcon attr icon =
 renderHeader bookState =
     row
         [ width fill
+        , height (px 15)
         , behindContent
             (el
                 [ moveRight 65
@@ -613,7 +636,7 @@ renderBook bookState animationData index book =
                                     { x =
                                         Animator.at
                                             (pageWidth - bookDetailCardWidth - bookDetailRightPadding - bookOffset - 110)
-                                    , y = Animator.at -14
+                                    , y = Animator.at 0
                                     }
 
                                 else
