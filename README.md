@@ -1,3 +1,4 @@
+# Haruki Murakami Book Author Website UI
 
 Live here: https://nduatik.github.io/harumi-murakami/
 
@@ -10,5 +11,6 @@ Todo
 
 - [x] Add detail page
 - [x] Add animations in home and detail page
-- [ ] Make hero animation precise
+- [x] Make hero animation precise
 - [ ] Add animating background to detail page
+- [ ] Add grain to detail page background

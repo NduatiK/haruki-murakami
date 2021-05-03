@@ -47,6 +47,7 @@ type alias Model =
     , books : List Book
     , state : Animator.Timeline State
     , lastBook : Maybe Book
+    , animationData : Maybe { pageWidth : Float, bookOffset : Float }
     }
 
 
@@ -92,6 +93,7 @@ init req sharedOptions =
       , books = Models.Book.allBooks
       , state = Animator.init Default
       , lastBook = Nothing
+      , animationData = Nothing
       }
     , Cmd.none
     )
@@ -105,6 +107,7 @@ type Msg
     = NoOp
     | Tick Time.Posix
     | SelectBook Int Book
+    | UpdateSelectBookLocations ( Float, Float )
     | CloseBook
 
 
@@ -121,11 +124,46 @@ update msg model =
             )
 
         SelectBook index book ->
+            let
+                pageId =
+                    "page"
+
+                selectedBookId =
+                    "book-" ++ String.fromInt index
+            in
             ( { model
                 | state =
                     model.state
                         |> Animator.go Animator.verySlowly (BookOpen index book)
                 , lastBook = Just book
+              }
+            , Browser.Dom.getElement pageId
+                |> Task.andThen
+                    (\pageInfo ->
+                        Browser.Dom.getElement selectedBookId
+                            |> Task.andThen
+                                (\bookInfo ->
+                                    -- Set data for book current location default to 148
+                                    -- Set data for page size
+                                    -- We will then animate from page width
+                                    Task.succeed ( pageInfo.scene.width, bookInfo.element.x )
+                                )
+                    )
+                |> Task.attempt
+                    (\result ->
+                        case result of
+                            Err _ ->
+                                NoOp
+
+                            Ok ( pageWidth, bookOffset ) ->
+                                UpdateSelectBookLocations ( pageWidth, bookOffset )
+                    )
+            )
+
+        UpdateSelectBookLocations ( pageWidth, bookOffset ) ->
+            ( { model
+                | animationData =
+                    Just { pageWidth = pageWidth, bookOffset = bookOffset }
               }
             , Cmd.none
             )
@@ -176,6 +214,7 @@ homePage model =
     row
         [ height fill
         , htmlAttribute (Html.Attributes.style "width" "100vw")
+        , htmlAttribute (Html.Attributes.id "page")
         ]
         [ sidebar
         , el
@@ -192,7 +231,7 @@ homePage model =
                 [ el [ height (px 60) ] none
                 , renderHeader model.state
                 , el [ height (px 60) ] none
-                , renderBookList model.state model.books
+                , renderBookList model.state model.animationData model.books
                 , el [ height (px 160) ] none
                 , row
                     [ onOpenAnimateX model.state (always -800)
@@ -246,8 +285,33 @@ homePage model =
         ]
 
 
+bookDetailCardWidth =
+    840
+
+
+bookDetailRightPadding =
+    80
+
+
 bookDetailPage model =
     let
+        animateOffset =
+            htmlAttribute <|
+                Animator.Inline.xy model.state <|
+                    \state ->
+                        case ( state, model.animationData ) of
+                            ( Default, Just { pageWidth, bookOffset } ) ->
+                                { x =
+                                    Animator.at
+                                        -(pageWidth - bookDetailCardWidth - bookDetailRightPadding - 148 - bookOffset + 110 + 40 + 8)
+                                , y = Animator.at 0
+                                }
+
+                            _ ->
+                                { x = Animator.at -110
+                                , y = Animator.at 12
+                                }
+
         scale =
             Animator.linear model.state <|
                 \state ->
@@ -325,7 +389,7 @@ bookDetailPage model =
                         ]
                     , el
                         [ height (px 600)
-                        , width (px 840)
+                        , width (px bookDetailCardWidth)
                         , alignRight
                         , alignTop
                         , moveDown UI.sidebarHeight
@@ -337,7 +401,8 @@ bookDetailPage model =
 
                                 -- , onOpenAnimateX bookState (always 200)
                                 , centerY
-                                , moveLeft 110
+                                , htmlAttribute (Html.Attributes.style "z-index" "200")
+                                , animateOffset
                                 , Border.shadow
                                     { blur = 15
                                     , color = UI.withAlpha 0.2 UI.black
@@ -391,7 +456,7 @@ bookDetailPage model =
                         )
                     , el
                         [ height (px 540)
-                        , width (px 80)
+                        , width (px bookDetailRightPadding)
                         , alignRight
                         ]
                         none
@@ -489,12 +554,17 @@ renderHeader bookState =
             ]
             (text "Most Popular Picks")
         , el [ width (px 40) ] none
-        , renderIcon [ alignLeft, centerY, onOpenAnimateX bookState (always -800) ] FeatherIcons.menu
+        , renderIcon
+            [ alignLeft
+            , centerY
+            , onOpenAnimateX bookState (always -800)
+            ]
+            FeatherIcons.menu
         , el [ width (px 65) ] none
         ]
 
 
-renderBookList state books =
+renderBookList state animationData books =
     el
         [ height (px 330)
         , htmlAttribute (Html.Attributes.class "keep-scrolling")
@@ -508,7 +578,7 @@ renderBookList state books =
         row
             [ spacing 70
             ]
-            (List.indexedMap (renderBook state) books
+            (List.indexedMap (renderBook state animationData) books
                 ++ [ el
                         [ htmlAttribute
                             (Html.Attributes.style "width"
@@ -526,8 +596,32 @@ renderBookList state books =
 -- renderBook : Int -> Book -> Element Msg
 
 
-renderBook bookState index book =
+renderBook bookState animationData index book =
     let
+        noMovement =
+            { x = Animator.at 0
+            , y = Animator.at 0
+            }
+
+        animateOffset =
+            htmlAttribute <|
+                Animator.Inline.xy bookState <|
+                    \state ->
+                        case ( state, animationData ) of
+                            ( BookOpen bookIndex _, Just { pageWidth, bookOffset } ) ->
+                                if index == bookIndex then
+                                    { x =
+                                        Animator.at
+                                            (pageWidth - bookDetailCardWidth - bookDetailRightPadding - bookOffset - 110)
+                                    , y = Animator.at -14
+                                    }
+
+                                else
+                                    noMovement
+
+                            _ ->
+                                noMovement
+
         scale =
             Animator.linear bookState <|
                 \state ->
@@ -552,6 +646,15 @@ renderBook bookState index book =
              else
                 CloseBook
             )
+
+        -- , case Animator.current bookState of
+        --     BookOpen bookIndex _ ->
+        --         if index == bookIndex then
+        --             alpha 0
+        --         else
+        --             alpha 1
+        --     Default ->
+        --         alpha 1
         , onOpenAnimateX bookState <|
             \bookIndex ->
                 if index > bookIndex then
@@ -567,7 +670,9 @@ renderBook bookState index book =
         [ image
             [ width (px (round (180 * scale)))
             , height (px (round (270 * scale)))
-            , onOpenAnimateX bookState (always 200)
+            , animateOffset
+
+            -- , onOpenAnimateX bookState (always 200)
             , alignTop
             , if Animator.current bookState /= Default then
                 htmlAttribute (Html.Attributes.style "z-index" "100")
