@@ -732,7 +732,15 @@ renderBook bookState animationData index book =
             , src = book.imageUrl
             }
         , el [ width (px 40) ] none
-        , column []
+        , column
+            [ onOpenAnimateX bookState <|
+                \bookIndex ->
+                    if index == bookIndex then
+                        1000
+
+                    else
+                        0
+            ]
             [ el
                 [ width (px 220)
                 , Font.size 24
