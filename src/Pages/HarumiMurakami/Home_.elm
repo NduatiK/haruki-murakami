@@ -68,28 +68,7 @@ animator =
 
 
 init : Request.With Params -> Shared.PageOptions -> ( Model, Cmd Msg )
-init req sharedOptions =
-    -- ( { req = req
-    --   , books = Models.Book.allBooks
-    --   , state =
-    --         Animator.init
-    --             (BookOpen 0
-    --                 { imageUrl = "book1-large.png"
-    --                 , title = "The Wind-Up Bird Chronicle"
-    --                 , stars = 4
-    --                 , reviews = 1604
-    --                 }
-    --             )
-    --   , lastBook =
-    --         Just
-    --             { imageUrl = "book1-large.png"
-    --             , title = "The Wind-Up Bird Chronicle"
-    --             , stars = 4
-    --             , reviews = 1604
-    --             }
-    --   }
-    -- , Cmd.none
-    -- )
+init req _ =
     ( { req = req
       , books = Models.Book.allBooks
       , state = Animator.init Default
@@ -156,9 +135,6 @@ update msg model =
                         Browser.Dom.getElement selectedBookId
                             |> Task.andThen
                                 (\bookInfo ->
-                                    -- Set data for book current location default to 148
-                                    -- Set data for page size
-                                    -- We will then animate from page width
                                     Task.succeed ( pageInfo.scene.width, bookInfo.element.x )
                                 )
                     )
@@ -296,8 +272,6 @@ homePage model =
                             , el [ alpha 0.4, Background.color UI.black, width (px 2), height (px 16) ] none
                             ]
                         ]
-
-                    -- ,
                     ]
                 ]
         ]
@@ -344,19 +318,6 @@ bookDetailPage model =
         [ clipX
         , Background.color (rgb255 225 214 205)
 
-        -- , Background.color (rgb255 218 210 202)
-        -- , htmlAttribute (Html.Attributes.style "transition" "width 40ms linear")
-        -- , htmlAttribute (Html.Attributes.style "z-index" "100")
-        -- , htmlAttribute
-        --     (Html.Attributes.style "width"
-        --         ((if Animator.current model.state == Default then
-        --             "0"
-        --           else
-        --             "100"
-        --          )
-        --             ++ "vw"
-        --         )
-        --     )
         , htmlAttribute
             (Html.Attributes.style "width"
                 ((String.fromFloat <|
@@ -437,8 +398,6 @@ bookDetailPage model =
                             (image
                                 [ width (px (round (180 * scale)))
                                 , height (px (round (270 * scale)))
-
-                                -- , onOpenAnimateX bookState (always 200)
                                 , alignTop
                                 , moveDown 140
                                 , htmlAttribute (Html.Attributes.style "z-index" "200")
@@ -455,7 +414,6 @@ bookDetailPage model =
                                 }
                             )
 
-                        -- , onOpenAnimateX bookState (always -800)
                         ]
                         (row [ width fill, height fill ]
                             [ el [ width (px 190) ] none
@@ -534,7 +492,6 @@ sidebar model =
         , Background.color UI.white
         , width (px sidebarWidth)
 
-        -- , htmlAttribute (Html.Attributes.style "z-index" "100")
         ]
         [ renderIcon [ centerY ] FeatherIcons.music
         , renderIcon [ centerY ] FeatherIcons.book
@@ -695,15 +652,7 @@ renderBook bookState animationData index book =
                 CloseBook
             )
 
-        -- , case Animator.current bookState of
-        --     BookOpen bookIndex _ ->
-        --         if index == bookIndex then
-        --             alpha 0
-        --         else
-        --             alpha 1
-        --     Default ->
-        --         alpha 1
-        , onOpenAnimateX bookState <|
+         , onOpenAnimateX bookState <|
             \bookIndex ->
                 if index > bookIndex then
                     1000
@@ -720,7 +669,6 @@ renderBook bookState animationData index book =
             , height (px (round (270 * scale)))
             , animateOffset
 
-            -- , onOpenAnimateX bookState (always 200)
             , alignTop
             , if Animator.current bookState /= Default then
                 htmlAttribute (Html.Attributes.style "z-index" "100")
