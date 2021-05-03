@@ -2,4 +2,4 @@
 .elm-spa
 elm-stuff
 node_modules
-public/dist
+public
