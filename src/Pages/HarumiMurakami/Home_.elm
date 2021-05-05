@@ -877,7 +877,7 @@ renderHeader bookState =
         [ el
             [ Font.light
             , Font.size 56
-            , width (fill |> maximum (1000 + 25))
+            , width (fill |> maximum (slideDistance + 25))
             , onOpenAnimateX bookState (always 400)
             ]
             (text "Most Popular Picks")
@@ -919,6 +919,10 @@ renderBookList state animationData books =
                         none
                    ]
             )
+
+
+slideDistance =
+    1200
 
 
 renderBook : Animator.Timeline State -> Maybe AnimationData -> Int -> Book -> Element Msg
@@ -975,13 +979,13 @@ renderBook bookState animationData index book =
         , onOpenAnimateX bookState <|
             \bookIndex ->
                 if index > bookIndex then
-                    1000
+                    slideDistance
 
                 else if index == bookIndex then
                     0
 
                 else
-                    -1000
+                    -slideDistance
         , height (px 270)
         ]
         [ image
@@ -1003,7 +1007,7 @@ renderBook bookState animationData index book =
             [ onOpenAnimateX bookState <|
                 \bookIndex ->
                     if index == bookIndex then
-                        1000
+                        slideDistance
 
                     else
                         0
