@@ -6,6 +6,16 @@ body {
     width: 100vw;
 }
 
+.s.tiny_text {
+    line-height: 4px !important;
+    /* white-space: pre-wrap; */
+}
+
+
+.s.tiny_text>.s>.s.t {
+    white-space: pre-wrap !important;
+}
+
 .keep-scrolling {
     width: 200px;
     height: 100px;
