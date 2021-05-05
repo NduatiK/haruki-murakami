@@ -60,7 +60,7 @@ type alias AnimationData =
 
 type State
     = Default
-    | BookOpen Int Book
+    | BookOpen Int Book Bool
 
 
 animator : Animator.Animator Model
@@ -97,6 +97,7 @@ type Msg
     | UpdateSelectBookLocations ( Float, Float )
     | CloseBook
     | ToggleSpeed
+    | OpenPreview
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -128,11 +129,11 @@ update msg model =
                 | state =
                     if model.fast then
                         model.state
-                            |> Animator.go Animator.verySlowly (BookOpen index book)
+                            |> Animator.go Animator.verySlowly (BookOpen index book False)
 
                     else
                         model.state
-                            |> Animator.go (Animator.millis 4000) (BookOpen index book)
+                            |> Animator.go (Animator.millis 4000) (BookOpen index book False)
                 , lastBook = Just book
               }
             , Browser.Dom.getElement pageId
@@ -173,6 +174,25 @@ update msg model =
                     else
                         model.state
                             |> Animator.go (Animator.millis 4000) Default
+              }
+            , Cmd.none
+            )
+
+        OpenPreview ->
+            ( { model
+                | state =
+                    case Animator.current model.state of
+                        Default ->
+                            model.state
+
+                        BookOpen index book bool ->
+                            if model.fast then
+                                model.state
+                                    |> Animator.go Animator.verySlowly (BookOpen index book (not bool))
+
+                            else
+                                model.state
+                                    |> Animator.go (Animator.millis 10000) (BookOpen index book (not bool))
               }
             , Cmd.none
             )
@@ -285,7 +305,7 @@ bookDetailRightPadding =
     80
 
 
-bookDetailPage : Model -> Element msg
+bookDetailPage : Model -> Element Msg
 bookDetailPage model =
     let
         animateOffset =
@@ -312,8 +332,116 @@ bookDetailPage model =
                         Default ->
                             Animator.at 1
 
-                        BookOpen _ _ ->
+                        BookOpen _ _ _ ->
                             Animator.at (220 / 180)
+
+        customPercent modifier =
+            Animator.move model.state <|
+                \state ->
+                    modifier <|
+                        case state of
+                            Default ->
+                                Animator.at 0
+
+                            BookOpen _ _ False ->
+                                Animator.at 0
+
+                            BookOpen _ _ True ->
+                                Animator.at 1
+
+        openPercent =
+            customPercent
+                (Animator.leaveSmoothly 0.2
+                    >> Animator.arriveSmoothly 0.2
+                )
+
+        delayedOpenPercent =
+            customPercent
+                (Animator.leaveSmoothly 0.8
+                    >> Animator.arriveSmoothly 0.4
+                )
+
+        darkGrey =
+            rgb255 45 45 47
+
+        page2 =
+            inFront
+                (el
+                    [ width (px (round (180 * scale)))
+                    , height (px (round (270 * scale)))
+                    , alignLeft
+                    , animateOffset
+                    , Background.color UI.white
+                    , Element.Events.onClick OpenPreview
+                    ]
+                 <|
+                    el
+                        [ width (px (round (180 * scale)))
+                        , height (px (round (270 * scale)))
+                        , alignTop
+                        , moveDown 180
+                        , Element.Events.onClick OpenPreview
+                        , Background.color UI.lessLightBlue
+                        , htmlAttribute (Html.Attributes.style "transform-origin" "left")
+                        , if isOpening then
+                            calcRotation delayedOpenPercent
+
+                          else
+                            calcRotation openPercent
+                        ]
+                        none
+                )
+
+        calcRotation percent =
+            let
+                minAsMaximum =
+                    if percent > 0.5 then
+                        2 * (1 - percent)
+
+                    else
+                        percent * 2
+            in
+            htmlAttribute (Html.Attributes.style "transform" ("rotateY(" ++ String.fromFloat (180 * percent) ++ "deg) skewY(" ++ String.fromFloat (minAsMaximum * -10) ++ "deg)"))
+
+        page1 =
+            inFront
+                (el
+                    [ width (px (round (180 * scale)))
+                    , height (px (round (270 * scale)))
+                    , alignLeft
+                    , animateOffset
+
+                    -- , Background.color UI.white
+                    , Element.Events.onClick OpenPreview
+                    ]
+                 <|
+                    el
+                        [ width (px (round (180 * scale)))
+                        , height (px (round (270 * scale)))
+                        , alignTop
+                        , moveDown 180
+                        , Element.Events.onClick OpenPreview
+                        , Background.color darkGrey
+                        , htmlAttribute (Html.Attributes.style "transform-origin" "left")
+                        , page1Animation
+                        ]
+                        none
+                )
+
+        isOpening =
+            case Animator.current model.state of
+                BookOpen _ _ bool ->
+                    bool
+
+                _ ->
+                    False
+
+        page1Animation =
+            if isOpening then
+                calcRotation openPercent
+
+            else
+                calcRotation delayedOpenPercent
     in
     el
         [ clipX
@@ -389,19 +517,25 @@ bookDetailPage model =
                         ]
                     , el
                         [ height (px 610)
+                        -- , htmlAttribute <|
+                        --     Animator.Inline.scale model.state <|
+                        --         \state ->
+                        --             Animator.at (1 + openPercent * 0.1)
+
+                        -- scale (1 + openPercent * 0.1)
                         , width (px bookDetailCardWidth)
                         , alignRight
                         , alignTop
                         , moveDown UI.sidebarHeight
                         , Background.color UI.white
                         , inFront
-                            (image
+                            (el
                                 [ width (px (round (180 * scale)))
                                 , height (px (round (270 * scale)))
-                                , alignTop
-                                , moveDown 140
-                                , htmlAttribute (Html.Attributes.style "z-index" "200")
+                                , alignLeft
                                 , animateOffset
+                                , Background.color UI.lightBlue
+                                , Element.Events.onClick OpenPreview
                                 , Border.shadow
                                     { blur = 15
                                     , color = UI.withAlpha 0.2 UI.black
@@ -409,39 +543,111 @@ bookDetailPage model =
                                     , size = 0
                                     }
                                 ]
-                                { description = "Cover for " ++ book.title
-                                , src = book.imageUrl
-                                }
+                                none
                             )
+                        , if delayedOpenPercent > 0.5 then
+                            moveUp 0
+
+                          else
+                            page2
+                        , if delayedOpenPercent > 0.5 then
+                            moveUp 0
+
+                          else
+                            page1
+                        , inFront
+                            (el
+                                [ width (px (round (180 * scale)))
+                                , height (px (round (270 * scale)))
+                                , alignLeft
+                                , animateOffset
+                                , Element.Events.onClick OpenPreview
+                                ]
+                             <|
+                                image
+                                    [ width (px (round (180 * scale)))
+                                    , height (px (round (270 * scale)))
+                                    , alignTop
+                                    , clip
+                                    , moveDown 140
+                                    , htmlAttribute (Html.Attributes.style "z-index" "200")
+                                    , htmlAttribute (Html.Attributes.style "transform-origin" "left")
+                                    , page1Animation
+                                    , Background.color UI.lightBlue
+                                    , case Animator.current model.state of
+                                        Default ->
+                                            moveUp 0
+
+                                        BookOpen _ _ False ->
+                                            htmlAttribute (Html.Attributes.class "sheen")
+
+                                        BookOpen _ _ True ->
+                                            moveUp 0
+                                    , Element.Events.onClick OpenPreview
+                                    , Border.shadow
+                                        { blur = 15
+                                        , color = UI.withAlpha 0.2 UI.black
+                                        , offset = ( 0, 10 )
+                                        , size = 0
+                                        }
+                                    ]
+                                    { description = "Cover for " ++ book.title
+                                    , src = book.imageUrl
+                                    }
+                            )
+                        , if (isOpening && openPercent > 0.5) || (not isOpening && openPercent > 0.3) then
+                            page1
+
+                          else
+                            moveUp 0
+                        , if delayedOpenPercent > 0.5 then
+                            page2
+
+                          else
+                            moveUp 0
                         ]
                         (row [ width fill, height fill ]
-                            [ el [ width (px 190) ] none
-                            , column
-                                [ UI.raleway, Font.color UI.black, width fill ]
-                                [ paragraph [ UI.robotoSlab, Font.size 40, width fill ]
-                                    [ text book.title ]
-                                , el [ height (px 40) ] none
-                                , el [ Font.medium ] (text "Haruki Murakami")
-                                , el [ height (px 40) ] none
-                                , row [ width fill ]
-                                    [ renderMetadata "Originally Published" "July 1, 1960"
-                                    , renderMetadata "Publisher" "Shin Publishing"
-                                    ]
-                                , el [ height (px 40) ] none
-                                , renderMetadata "Categories" "Fictional, Magical Realism, Asian Literature, Domestic Fiction"
+                            [ el [ width (px 120) ] none
+                            , el
+                                [ height fill
+                                , width (px (round ((bookDetailCardWidth - 120 - sidebarWidth) * (1 - openPercent))))
+                                , clipX
                                 ]
-                            , el [ width (px 40), alignRight ] none
+                              <|
+                                column
+                                    [ centerY
+                                    , UI.raleway
+                                    , Font.color UI.black
+                                    , width (px (round (bookDetailCardWidth - 120 - sidebarWidth)))
+                                    , paddingEach
+                                        { bottom = 0
+                                        , left = round 70
+                                        , right = round (40 * (1 - openPercent))
+                                        , top = 0
+                                        }
+                                    ]
+                                    [ paragraph [ UI.robotoSlab, Font.size 40, width fill ]
+                                        [ text book.title ]
+                                    , el [ height (px 40) ] none
+                                    , el [ Font.medium ] (text "Haruki Murakami")
+                                    , el [ height (px 40) ] none
+                                    , row [ width fill ]
+                                        [ renderMetadata "Originally Published" "July 1, 1960"
+                                        , renderMetadata "Publisher" "Shin Publishing"
+                                        ]
+                                    , el [ height (px 40) ] none
+                                    , renderMetadata "Categories" "Fictional, Magical Realism, Asian Literature, Domestic Fiction"
+                                    ]
                             , el
                                 [ height fill
                                 , width (px sidebarWidth)
                                 , Border.widthEach
                                     { bottom = 0
-                                    , left = 1
-                                    , right = 0
+                                    , left = round (1 - openPercent)
+                                    , right = round openPercent
                                     , top = 0
                                     }
                                 , Border.color (UI.withAlpha 0.2 UI.black)
-                                , alignRight
                                 ]
                               <|
                                 column [ centerY, centerX, spacing 80 ]
@@ -449,11 +655,69 @@ bookDetailPage model =
                                     , renderBookAction "Preview" FeatherIcons.playCircle
                                     , renderBookAction "Get Book" FeatherIcons.shoppingBag
                                     ]
+                            , el
+                                [ height fill
+                                , width (px (round ((bookDetailCardWidth - 120 - sidebarWidth) * openPercent)))
+                                , clipX
+                                ]
+                              <|
+                                column
+                                    [ centerY
+                                    , Font.color UI.black
+                                    , width (px (round (bookDetailCardWidth - 140 - sidebarWidth)))
+                                    , paddingEach
+                                        { bottom = 0
+                                        , left = round 60
+                                        , right = round 50
+                                        , top = 0
+                                        }
+                                    , UI.rubik
+                                    ]
+                                    [ el [ Font.regular, UI.rubik, Font.size 24, squishFont ]
+                                        (text "Excerpt")
+                                    , el [ height (px 40) ] none
+                                    , el [ Font.color UI.lessLightBlue, Font.size 20, squishFont ] (text "Book 1 - Chapter 1")
+                                    , el [ height (px 40) ] none
+                                    , paragraph [ UI.robotoSlab, Font.size 18, spacingXY 0 10 ] <|
+                                        [ text
+                                            """
+                            I wanted to ignore the phone, not only 
+                            because the spaghetti was nearly 
+                            done, but because Claudio Abbado was
+                            bringing the London Symphony to its
+                            musical climax. Finally, though, I had
+                            to give in. It could have been somebody
+                            with news of a job opening. I lowered
+                            the flame, went to the living room, and
+                            picked up the receiver.
+                            """
+                                        ]
+                                    , el [ height (px 60) ] none
+                                    , el
+                                        [ Font.color UI.black
+                                        , Font.size 20
+                                        , Font.regular
+                                        , squishFont
+                                        ]
+                                        (text "See full excerpt")
+                                    , el
+                                        [ width (px 300)
+                                        , height (px 8)
+                                        , Border.widthEach
+                                            { bottom = 2
+                                            , left = 0
+                                            , right = 0
+                                            , top = 0
+                                            }
+                                        , Border.color (UI.withAlpha 0.3 UI.black)
+                                        ]
+                                        none
+                                    ]
                             ]
                         )
                     , el
                         [ height (px 540)
-                        , width (px bookDetailRightPadding)
+                        , width (px (round (bookDetailRightPadding * (1 - openPercent))))
                         , alignRight
                         ]
                         none
@@ -468,7 +732,7 @@ renderMetadata title subtitle =
         ]
 
 
-renderBookAction : String -> FeatherIcons.Icon -> Element msg
+renderBookAction : String -> FeatherIcons.Icon -> Element Msg
 renderBookAction action icon =
     column [ spacing 8, centerX, Font.center, Font.regular, UI.rubik ]
         [ icon
@@ -519,7 +783,7 @@ renderIcon attr icon =
         |> el (Font.color UI.black :: attr)
 
 
-renderHeader : Animator.Timeline State -> Element msg
+renderHeader : Animator.Timeline State -> Element Msg
 renderHeader bookState =
     row
         [ width fill
@@ -615,7 +879,7 @@ renderBook bookState animationData index book =
                 Animator.Inline.xy bookState <|
                     \state ->
                         case ( state, animationData ) of
-                            ( BookOpen bookIndex _, Just { pageWidth, bookOffset } ) ->
+                            ( BookOpen bookIndex _ _, Just { pageWidth, bookOffset } ) ->
                                 if index == bookIndex then
                                     { x =
                                         Animator.at
@@ -636,7 +900,7 @@ renderBook bookState animationData index book =
                         Default ->
                             Animator.at 1
 
-                        BookOpen bookIndex _ ->
+                        BookOpen bookIndex _ _ ->
                             if index == bookIndex then
                                 Animator.at (220 / 180)
 
@@ -857,7 +1121,7 @@ commaSeparatedInt int =
         |> String.join ","
 
 
-onOpenAnimateX : Animator.Timeline State -> (Int -> Float) -> Attribute msg
+onOpenAnimateX : Animator.Timeline State -> (Int -> Float) -> Attribute Msg
 onOpenAnimateX bookState fn =
     htmlAttribute <|
         Animator.Inline.xy bookState <|
@@ -866,5 +1130,10 @@ onOpenAnimateX bookState fn =
                     Default ->
                         { x = Animator.at 0, y = Animator.at 0 }
 
-                    BookOpen bookIndex _ ->
+                    BookOpen bookIndex _ _ ->
                         { x = Animator.at (fn bookIndex), y = Animator.at 0 }
+
+
+squishFont =
+    htmlAttribute <|
+        Html.Attributes.style "transform" "scaleY(0.9)"
