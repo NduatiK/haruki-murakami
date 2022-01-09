@@ -2,6 +2,7 @@ module UI exposing
     ( black
     , cream
     , layout
+    , lessLightBlue
     , lightBlue
     , raleway
     , red
@@ -9,7 +10,7 @@ module UI exposing
     , rubik
     , sidebarHeight
     , white
-    , withAlpha, lessLightBlue
+    , withAlpha
     )
 
 import Element exposing (..)
@@ -52,15 +53,15 @@ layout currentRoute child onRoutePageAnimator =
 navbar currentRoute onRoutePageAnimator =
     let
         icon =
-            if currentRoute == HarumiMurakami__Home_ then
+            if currentRoute == HarukiMurakami__Home_ then
                 FeatherIcons.menu
 
             else
                 FeatherIcons.arrowLeft
 
         navigationTitle =
-            if currentRoute == HarumiMurakami__Home_ then
-                "Harumi Murakami"
+            if currentRoute == HarukiMurakami__Home_ then
+                "Haruki Murakami"
 
             else
                 "Back"
@@ -95,7 +96,7 @@ navbar currentRoute onRoutePageAnimator =
 renderSearchBar currentRoute =
     let
         isExpanded =
-            currentRoute == HarumiMurakami__Home_
+            currentRoute == HarukiMurakami__Home_
 
         searchIcon =
             FeatherIcons.search

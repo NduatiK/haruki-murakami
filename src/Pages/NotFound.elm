@@ -19,7 +19,7 @@ view =
             , Element.Background.color UI.white
             ]
             [ link []
-                { url = Gen.Route.toHref Gen.Route.HarumiMurakami__Home_
+                { url = Gen.Route.toHref Gen.Route.HarukiMurakami__Home_
                 , label = text "Home"
                 }
             , el

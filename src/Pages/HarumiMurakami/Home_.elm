@@ -1,4 +1,4 @@
-module Pages.HarumiMurakami.Home_ exposing (Model, Msg, page)
+module Pages.HarukiMurakami.Home_ exposing (Model, Msg, page)
 
 import Animator
 import Animator.Inline
@@ -1044,7 +1044,7 @@ navbar forHome model =
 
         navigationTitle =
             if forHome then
-                "Harumi Murakami"
+                "Haruki Murakami"
 
             else
                 "Back"

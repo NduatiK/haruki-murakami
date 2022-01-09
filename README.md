@@ -1,6 +1,6 @@
 # Haruki Murakami Book Author Website UI
 
-Live here: https://nduatik.github.io/harumi-murakami/
+Live here: https://nduatik.github.io/haruki-murakami/
 
 ![Image](./screenshot.png)
 
