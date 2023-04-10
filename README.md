@@ -13,5 +13,5 @@ Todo
 - [x] Add animations in home and detail page
 - [x] Make hero animation precise
 - [ ] Add animating background to detail page
-- [ ] Add grain to detail page background
-- [ ] Add animation to book preview
+- [x] Add grain to detail page background
+- [x] Add animation to book preview
